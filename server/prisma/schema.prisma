@@ -1,0 +1,446 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum TeamRole {
+  admin
+  treasurer
+  member
+}
+
+enum FineStatus {
+  unpaid
+  partially_paid
+  paid
+}
+
+enum FineCategory {
+  retard
+  absence
+  materiel
+  comportement
+  performance
+  autre
+}
+
+enum ActivityType {
+  team_created
+  member_joined
+  member_left
+  rule_created
+  rule_updated
+  fine_issued
+  fine_updated
+  fine_deleted
+  payment_recorded
+  expense_recorded
+  dispute_created
+  dispute_resolved
+}
+
+enum FinePermission {
+  admin_only
+  treasurer
+  everyone
+}
+
+enum DisputeMode {
+  simple
+  community
+}
+
+enum DisputeStatus {
+  pending
+  approved
+  rejected
+  auto_approved
+}
+
+enum PaymentMethodType {
+  bank_transfer
+  paypal
+  lydia
+  cash
+  paylib
+  revolut
+}
+
+enum NotificationType {
+  fine_received
+  fine_paid
+  payment_recorded
+  member_joined
+  member_left
+  team_closed
+  team_reopened
+  reminder_unpaid
+  dispute_created
+  dispute_resolved
+}
+
+enum ExpenseCategory {
+  nourriture
+  boisson
+  materiel
+  evenement
+  autre
+}
+
+// ============================================================================
+// MODELS
+// ============================================================================
+
+model User {
+  id          String   @id @default(uuid())
+  email       String   @unique
+  password    String
+  displayName String   @map("display_name")
+  avatarUrl   String?  @map("avatar_url")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  createdTeams             Team[]                         @relation("TeamCreator")
+  teamMemberships          TeamMember[]
+  createdFineRules         FineRule[]                     @relation("FineRuleCreator")
+  receivedFines            Fine[]                         @relation("FineOffender")
+  issuedFines              Fine[]                         @relation("FineIssuer")
+  payments                 Payment[]                      @relation("PaymentUser")
+  recordedPayments         Payment[]                      @relation("PaymentRecorder")
+  activityLogs             ActivityLog[]                  @relation("ActivityActor")
+  targetedActivityLogs     ActivityLog[]                  @relation("ActivityTarget")
+  createdPaymentMethods    TeamPaymentMethod[]
+  disputes                 FineDispute[]                  @relation("DisputeCreator")
+  resolvedDisputes         FineDispute[]                  @relation("DisputeResolver")
+  disputeVotes             FineDisputeVote[]
+  notifications            Notification[]
+  notificationSettings     UserNotificationSettings?
+  teamNotificationSettings UserTeamNotificationSettings[]
+  expenses                 Expense[]
+  refreshTokens            RefreshToken[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+model Team {
+  id                   String         @id @default(uuid())
+  name                 String
+  description          String?
+  sport                String?
+  photoUrl             String?        @map("photo_url")
+  inviteCode           String         @unique @map("invite_code")
+  createdById          String         @map("created_by")
+  allowCustomFines     Boolean        @default(true) @map("allow_custom_fines")
+  finePermission       FinePermission @default(everyone) @map("fine_permission")
+  isClosed             Boolean        @default(false) @map("is_closed")
+  disputeEnabled       Boolean        @default(false) @map("dispute_enabled")
+  disputeMode          DisputeMode?   @map("dispute_mode")
+  disputeVotesRequired Int?           @map("dispute_votes_required")
+  createdAt            DateTime       @default(now()) @map("created_at")
+  updatedAt            DateTime       @updatedAt @map("updated_at")
+
+  // Relations
+  createdBy                User                           @relation("TeamCreator", fields: [createdById], references: [id])
+  members                  TeamMember[]
+  fineRules                FineRule[]
+  fines                    Fine[]
+  payments                 Payment[]
+  activityLogs             ActivityLog[]
+  paymentMethods           TeamPaymentMethod[]
+  disputes                 FineDispute[]
+  notifications            Notification[]
+  teamNotificationSettings UserTeamNotificationSettings[]
+  expenses                 Expense[]
+
+  @@index([inviteCode])
+  @@index([createdById])
+  @@map("teams")
+}
+
+model TeamMember {
+  id        String   @id @default(uuid())
+  teamId    String   @map("team_id")
+  userId    String   @map("user_id")
+  role      TeamRole @default(member)
+  credit    Decimal  @default(0) @db.Decimal(10, 2)
+  isDeleted Boolean  @default(false) @map("is_deleted")
+  joinedAt  DateTime @default(now()) @map("joined_at")
+
+  // Relations
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@index([teamId])
+  @@index([userId])
+  @@map("team_members")
+}
+
+model FineRule {
+  id          String       @id @default(uuid())
+  teamId      String       @map("team_id")
+  label       String
+  amount      Decimal      @db.Decimal(10, 2)
+  category    FineCategory @default(autre)
+  isActive    Boolean      @default(true) @map("is_active")
+  createdById String       @map("created_by")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  team      Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  createdBy User   @relation("FineRuleCreator", fields: [createdById], references: [id])
+  fines     Fine[]
+
+  @@index([teamId])
+  @@index([teamId, isActive])
+  @@map("fine_rules")
+}
+
+model Fine {
+  id               String     @id @default(uuid())
+  teamId           String     @map("team_id")
+  ruleId           String?    @map("rule_id")
+  offenderId       String     @map("offender_id")
+  issuedById       String     @map("issued_by_id")
+  customLabel      String?    @map("custom_label")
+  amount           Decimal    @db.Decimal(10, 2)
+  amountPaid       Decimal    @default(0) @map("amount_paid") @db.Decimal(10, 2)
+  status           FineStatus @default(unpaid)
+  note             String?
+  lastReminderSent DateTime?  @map("last_reminder_sent")
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
+
+  // Relations
+  team     Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  rule     FineRule?    @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+  offender User         @relation("FineOffender", fields: [offenderId], references: [id], onDelete: Cascade)
+  issuedBy User         @relation("FineIssuer", fields: [issuedById], references: [id])
+  payments Payment[]
+  dispute  FineDispute?
+
+  @@index([teamId])
+  @@index([offenderId])
+  @@index([issuedById])
+  @@index([status])
+  @@index([createdAt])
+  @@map("fines")
+}
+
+model Payment {
+  id           String   @id @default(uuid())
+  teamId       String   @map("team_id")
+  fineId       String?  @map("fine_id")
+  userId       String   @map("user_id")
+  amount       Decimal  @db.Decimal(10, 2)
+  method       String?
+  note         String?
+  recordedById String   @map("recorded_by")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Relations
+  team       Team  @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  fine       Fine? @relation(fields: [fineId], references: [id], onDelete: SetNull)
+  user       User  @relation("PaymentUser", fields: [userId], references: [id], onDelete: Cascade)
+  recordedBy User  @relation("PaymentRecorder", fields: [recordedById], references: [id])
+
+  @@index([teamId])
+  @@index([userId])
+  @@index([fineId])
+  @@index([createdAt])
+  @@map("payments")
+}
+
+model ActivityLog {
+  id           String       @id @default(uuid())
+  teamId       String       @map("team_id")
+  userId       String?      @map("user_id")
+  activityType ActivityType @map("activity_type")
+  targetUserId String?      @map("target_user_id")
+  metadata     Json         @default("{}")
+  createdAt    DateTime     @default(now()) @map("created_at")
+
+  // Relations
+  team       Team  @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  actor      User? @relation("ActivityActor", fields: [userId], references: [id], onDelete: SetNull)
+  targetUser User? @relation("ActivityTarget", fields: [targetUserId], references: [id], onDelete: SetNull)
+
+  @@index([teamId])
+  @@index([createdAt])
+  @@map("activity_log")
+}
+
+model TeamPaymentMethod {
+  id           String            @id @default(uuid())
+  teamId       String            @map("team_id")
+  methodType   PaymentMethodType @map("method_type")
+  isEnabled    Boolean           @default(true) @map("is_enabled")
+  displayName  String?           @map("display_name")
+  instructions String?
+  config       Json              @default("{}")
+  createdById  String?           @map("created_by")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+
+  // Relations
+  team      Team  @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  createdBy User? @relation(fields: [createdById], references: [id])
+
+  @@unique([teamId, methodType])
+  @@map("team_payment_methods")
+}
+
+model FineDispute {
+  id             String        @id @default(uuid())
+  fineId         String        @unique @map("fine_id")
+  teamId         String        @map("team_id")
+  disputedById   String        @map("disputed_by")
+  reason         String
+  status         DisputeStatus @default(pending)
+  resolvedById   String?       @map("resolved_by")
+  resolutionNote String?       @map("resolution_note")
+  votesCount     Int           @default(0) @map("votes_count")
+  votesRequired  Int           @map("votes_required")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  resolvedAt     DateTime?     @map("resolved_at")
+
+  // Relations
+  fine       Fine              @relation(fields: [fineId], references: [id], onDelete: Cascade)
+  team       Team              @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  disputedBy User              @relation("DisputeCreator", fields: [disputedById], references: [id])
+  resolvedBy User?             @relation("DisputeResolver", fields: [resolvedById], references: [id])
+  votes      FineDisputeVote[]
+
+  @@index([teamId])
+  @@index([status])
+  @@map("fine_disputes")
+}
+
+model FineDisputeVote {
+  id        String   @id @default(uuid())
+  disputeId String   @map("dispute_id")
+  userId    String   @map("user_id")
+  vote      Boolean
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  dispute FineDispute @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([disputeId, userId])
+  @@map("fine_dispute_votes")
+}
+
+model Notification {
+  id               String           @id @default(uuid())
+  userId           String           @map("user_id")
+  teamId           String?          @map("team_id")
+  notificationType NotificationType @map("notification_type")
+  title            String
+  body             String
+  data             Json             @default("{}")
+  isRead           Boolean          @default(false) @map("is_read")
+  readAt           DateTime?        @map("read_at")
+  createdAt        DateTime         @default(now()) @map("created_at")
+
+  // Relations
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team Team? @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+model UserNotificationSettings {
+  id                    String   @id @default(uuid())
+  userId                String   @unique @map("user_id")
+  notificationsEnabled  Boolean  @default(true) @map("notifications_enabled")
+  notifyFineReceived    Boolean  @default(true) @map("notify_fine_received")
+  notifyFinePaid        Boolean  @default(true) @map("notify_fine_paid")
+  notifyPaymentRecorded Boolean  @default(true) @map("notify_payment_recorded")
+  notifyMemberJoined    Boolean  @default(true) @map("notify_member_joined")
+  notifyMemberLeft      Boolean  @default(true) @map("notify_member_left")
+  notifyTeamClosed      Boolean  @default(true) @map("notify_team_closed")
+  notifyTeamReopened    Boolean  @default(true) @map("notify_team_reopened")
+  notifyReminderUnpaid  Boolean  @default(true) @map("notify_reminder_unpaid")
+  reminderIntervalDays  Int      @default(7) @map("reminder_interval_days")
+  quietHoursEnabled     Boolean  @default(false) @map("quiet_hours_enabled")
+  quietHoursStart       String   @default("22:00") @map("quiet_hours_start")
+  quietHoursEnd         String   @default("08:00") @map("quiet_hours_end")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_notification_settings")
+}
+
+model UserTeamNotificationSettings {
+  id                    String   @id @default(uuid())
+  userId                String   @map("user_id")
+  teamId                String   @map("team_id")
+  notificationsEnabled  Boolean? @map("notifications_enabled")
+  notifyFineReceived    Boolean? @map("notify_fine_received")
+  notifyFinePaid        Boolean? @map("notify_fine_paid")
+  notifyPaymentRecorded Boolean? @map("notify_payment_recorded")
+  notifyMemberJoined    Boolean? @map("notify_member_joined")
+  notifyMemberLeft      Boolean? @map("notify_member_left")
+  notifyTeamClosed      Boolean? @map("notify_team_closed")
+  notifyTeamReopened    Boolean? @map("notify_team_reopened")
+  notifyReminderUnpaid  Boolean? @map("notify_reminder_unpaid")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, teamId])
+  @@map("user_team_notification_settings")
+}
+
+model Expense {
+  id           String          @id @default(uuid())
+  teamId       String          @map("team_id")
+  amount       Decimal         @db.Decimal(10, 2)
+  description  String
+  category     ExpenseCategory @default(autre)
+  recordedById String          @map("recorded_by")
+  receiptUrl   String?         @map("receipt_url")
+  createdAt    DateTime        @default(now()) @map("created_at")
+
+  // Relations
+  team       Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  recordedBy User @relation(fields: [recordedById], references: [id])
+
+  @@index([teamId])
+  @@index([createdAt])
+  @@map("expenses")
+}
