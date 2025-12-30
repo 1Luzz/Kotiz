@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover" />
+
+  <!-- PWA Meta Tags -->
+  <meta name="theme-color" content="#1a1a2e" />
+  <meta name="background-color" content="#1a1a2e" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Kotiz" />
+  <meta name="application-name" content="Kotiz" />
+  <meta name="msapplication-TileColor" content="#1a1a2e" />
+  <meta name="msapplication-config" content="/browserconfig.xml" />
+
+  <!-- SEO -->
+  <meta name="description" content="Application de gestion de caisse noire pour équipes" />
+  <meta name="keywords" content="caisse noire, amendes, équipe, gestion" />
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="Kotiz - Caisse Noire" />
+  <meta property="og:description" content="Application de gestion de caisse noire pour équipes" />
+  <meta property="og:type" content="website" />
+  <meta property="og:locale" content="fr_FR" />
+
+  <title>Kotiz - Caisse Noire</title>
+
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="/manifest.json" />
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
+
+  <!-- Apple Touch Icons -->
+  <link rel="apple-touch-icon" href="/icons/icon.svg" />
+
+  <style>
+    html, body, #root {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      background-color: #1a1a2e;
+      overflow: hidden;
+    }
+
+    /* Loading screen */
+    #splash-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: #1a1a2e;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+
+    #splash-screen .logo {
+      font-size: 48px;
+      font-weight: bold;
+      color: #6c63ff;
+      margin-bottom: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    #splash-screen .loader {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(108, 99, 255, 0.3);
+      border-top-color: #6c63ff;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+  <!-- Splash screen shown during app load -->
+  <div id="splash-screen">
+    <div class="logo">Kotiz</div>
+    <div class="loader"></div>
+  </div>
+
+  <div id="root"></div>
+
+  <script>
+    // Register service worker
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then((registration) => {
+            console.log('SW registered:', registration.scope);
+
+            // Check for updates
+            registration.addEventListener('updatefound', () => {
+              const newWorker = registration.installing;
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  // New content available, show update prompt if desired
+                  console.log('New content available, refresh to update');
+                }
+              });
+            });
+          })
+          .catch((error) => {
+            console.error('SW registration failed:', error);
+          });
+      });
+    }
+
+    // Hide splash screen when app is ready
+    window.addEventListener('DOMContentLoaded', () => {
+      // Give the app some time to render
+      setTimeout(() => {
+        const splash = document.getElementById('splash-screen');
+        if (splash) {
+          splash.classList.add('hidden');
+        }
+      }, 500);
+    });
+  </script>
+</body>
+</html>

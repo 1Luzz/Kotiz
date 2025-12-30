@@ -26,7 +26,17 @@
     },
     "web": {
       "favicon": "./assets/favicon.png",
-      "bundler": "metro"
+      "bundler": "metro",
+      "output": "static",
+      "name": "Kotiz - Caisse Noire",
+      "shortName": "Kotiz",
+      "description": "Application de gestion de caisse noire pour équipes",
+      "lang": "fr",
+      "themeColor": "#1a1a2e",
+      "backgroundColor": "#1a1a2e",
+      "startUrl": "/",
+      "display": "standalone",
+      "orientation": "portrait"
     },
     "plugins": [
       "expo-router",

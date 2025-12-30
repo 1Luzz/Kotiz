@@ -5,6 +5,7 @@ import fastifyStatic from '@fastify/static';
 import { config } from './config/index.js';
 import { registerRoutes } from './routes/index.js';
 import path from 'path';
+import fs from 'fs';
 
 async function buildServer() {
   const fastify = Fastify({
@@ -73,6 +74,39 @@ async function buildServer() {
 
   // Register routes
   await registerRoutes(fastify);
+
+  // Serve frontend static files in production
+  const frontendPath = path.resolve(config.frontendPath);
+  if (config.serveFrontend && fs.existsSync(frontendPath)) {
+    // Serve static frontend files
+    await fastify.register(fastifyStatic, {
+      root: frontendPath,
+      prefix: '/',
+      decorateReply: false,
+      wildcard: false,
+    });
+
+    // SPA fallback - serve index.html for all unmatched routes
+    fastify.setNotFoundHandler(async (request, reply) => {
+      // Don't serve index.html for API routes
+      if (request.url.startsWith('/auth/') ||
+          request.url.startsWith('/users/') ||
+          request.url.startsWith('/teams/') ||
+          request.url.startsWith('/disputes/') ||
+          request.url.startsWith('/notifications/') ||
+          request.url.startsWith('/uploads/')) {
+        return reply.status(404).send({
+          error: 'NOT_FOUND',
+          message: 'Route non trouvée',
+        });
+      }
+
+      // Serve index.html for SPA routes
+      return reply.sendFile('index.html', frontendPath);
+    });
+
+    fastify.log.info(`Serving frontend from ${frontendPath}`);
+  }
 
   return fastify;
 }

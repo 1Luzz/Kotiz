@@ -1,86 +1,105 @@
-version: '3.8'
+# =============================================================================
+# Kotiz (Caisse Noire) - Docker Compose
+# =============================================================================
+#
+# Deployment commands:
+#   docker-compose up -d                    # Start all services
+#   docker-compose --profile setup up -d    # Run migrations first
+#   docker-compose logs -f api              # Follow logs
+#   docker-compose down                     # Stop
+#   docker-compose build --no-cache         # Rebuild
+#
+# =============================================================================
 
 services:
+  # ---------------------------------------------------------------------------
   # PostgreSQL Database
+  # ---------------------------------------------------------------------------
   db:
     image: postgres:16-alpine
+    container_name: kotiz-db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${DB_USER:-caisse_noire}
+      POSTGRES_USER: ${DB_USER:-kotiz}
       POSTGRES_PASSWORD: ${DB_PASSWORD:?Database password required}
-      POSTGRES_DB: ${DB_NAME:-caisse_noire}
+      POSTGRES_DB: ${DB_NAME:-kotiz}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-caisse_noire} -d ${DB_NAME:-caisse_noire}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-kotiz} -d ${DB_NAME:-kotiz}"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - caisse-noire-network
+      - kotiz-network
 
-  # Fastify API Server
+  # ---------------------------------------------------------------------------
+  # Kotiz API + PWA (Fastify serving both API and static frontend)
+  # ---------------------------------------------------------------------------
   api:
     build:
-      context: ./server
+      context: .
       dockerfile: Dockerfile
+    container_name: kotiz-api
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://${DB_USER:-caisse_noire}:${DB_PASSWORD}@db:5432/${DB_NAME:-caisse_noire}
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://${DB_USER:-kotiz}:${DB_PASSWORD}@db:5432/${DB_NAME:-kotiz}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT access secret required}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT refresh secret required}
       UPLOADS_DIR: /app/uploads
-      UPLOADS_BASE_URL: ${API_URL:-http://localhost:3000}/uploads
-      PORT: 3000
-      NODE_ENV: production
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8081}
+      UPLOADS_BASE_URL: ${PUBLIC_URL:-https://kotiz.luzz.me}/uploads
+      CORS_ORIGINS: ${PUBLIC_URL:-https://kotiz.luzz.me},http://localhost:3000
+      SERVE_FRONTEND: "true"
+      FRONTEND_PATH: ./public
     volumes:
       - uploads:/app/uploads
     ports:
-      - "${API_PORT:-3000}:3000"
+      - "${API_PORT:-3001}:3000"
     networks:
-      - caisse-noire-network
+      - kotiz-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/auth/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
-  # Run database migrations (one-time job)
+  # ---------------------------------------------------------------------------
+  # Database Migrations (one-time job)
+  # ---------------------------------------------------------------------------
   migrate:
     build:
-      context: ./server
+      context: .
       dockerfile: Dockerfile
+    container_name: kotiz-migrate
     depends_on:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://${DB_USER:-caisse_noire}:${DB_PASSWORD}@db:5432/${DB_NAME:-caisse_noire}
+      DATABASE_URL: postgresql://${DB_USER:-kotiz}:${DB_PASSWORD}@db:5432/${DB_NAME:-kotiz}
     command: npx prisma migrate deploy
     networks:
-      - caisse-noire-network
+      - kotiz-network
     profiles:
       - setup
 
-  # Optional: Nginx reverse proxy with SSL
-  nginx:
-    image: nginx:alpine
-    restart: unless-stopped
-    depends_on:
-      - api
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./certs:/etc/nginx/certs:ro
-    networks:
-      - caisse-noire-network
-    profiles:
-      - production
-
+# =============================================================================
+# Volumes
+# =============================================================================
 volumes:
   postgres_data:
+    driver: local
   uploads:
+    driver: local
 
+# =============================================================================
+# Networks
+# =============================================================================
 networks:
-  caisse-noire-network:
+  kotiz-network:
     driver: bridge

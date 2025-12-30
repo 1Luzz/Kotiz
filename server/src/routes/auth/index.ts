@@ -139,4 +139,13 @@ export async function authRoutes(fastify: FastifyInstance) {
 
     return reply.send({ user });
   });
+
+  // GET /auth/health - Health check endpoint for Docker/monitoring
+  fastify.get('/health', async (_request, reply) => {
+    return reply.send({
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      service: 'kotiz-api',
+    });
+  });
 }

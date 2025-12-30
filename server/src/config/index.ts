@@ -12,6 +12,8 @@ const envSchema = z.object({
   UPLOADS_DIR: z.string().default('./uploads'),
   UPLOADS_BASE_URL: z.string().default('http://localhost:3000/uploads'),
   CORS_ORIGINS: z.string().default('http://localhost:8081'),
+  SERVE_FRONTEND: z.string().default('false'),
+  FRONTEND_PATH: z.string().default('./public'),
 });
 
 const env = envSchema.parse(process.env);
@@ -40,6 +42,10 @@ export const config = {
   cors: {
     origins: env.CORS_ORIGINS.split(',').map((o) => o.trim()),
   },
+
+  // Frontend serving (for production deployment)
+  serveFrontend: env.SERVE_FRONTEND === 'true',
+  frontendPath: env.FRONTEND_PATH,
 } as const;
 
 export type Config = typeof config;

@@ -1,0 +1,46 @@
+# Dependencies
+node_modules
+*/node_modules
+
+# Build outputs
+dist
+*/dist
+.expo
+*/.expo
+
+# Development files
+*.log
+.DS_Store
+Thumbs.db
+
+# Environment files (we'll use docker-compose env)
+.env
+*/.env
+.env.local
+.env.*.local
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+docs
+*/docs
+
+# Test files
+__tests__
+*.test.ts
+*.spec.ts
+coverage
+
+# Misc
+.dockerignore
+docker-compose*.yml
+Dockerfile*
