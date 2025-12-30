@@ -1,17 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
-// In production PWA, use relative URLs (same origin)
-// In development or mobile, use the configured API URL
-const getApiUrl = (): string => {
-  // For web production builds, use relative URL (served from same origin)
-  if (typeof window !== 'undefined' && window.location?.hostname !== 'localhost') {
-    return '';  // Relative URL - API is on same origin
-  }
-  return process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-};
-
-const API_URL = getApiUrl();
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
 // ============================================================================
 // Token Storage

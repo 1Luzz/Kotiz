@@ -1,129 +1,128 @@
 # Deployment Guide - Kotiz on luzz.me Homeserver
 
+## Architecture
+
+```
+                    Internet
+                       │
+                       ▼
+              [Caddy Reverse Proxy]
+                 ├─────┴─────┐
+                 ▼           ▼
+    kotiz.luzz.me        kotiz-api.luzz.me
+         │                    │
+         ▼                    ▼
+    [kotiz-pwa]          [kotiz-api]
+    nginx :3002          fastify :3001
+         │                    │
+         │                    ▼
+         │              [kotiz-db]
+         │              postgres :5432
+         │                    │
+         └────────────────────┘
+              Docker Network
+```
+
+- **kotiz.luzz.me** - PWA Frontend (nginx serving static files)
+- **kotiz-api.luzz.me** - API Backend (Fastify)
+
 ## Prerequisites
 
 - Docker and Docker Compose installed on the homeserver
 - Caddy configured as reverse proxy
-- Domain `kotiz.luzz.me` pointing to your server
+- DNS configured for `kotiz.luzz.me` and `kotiz-api.luzz.me`
 
 ## Deployment Steps
 
-### 1. Prepare the project on your local machine
-
-```bash
-# Clone/copy the project to a location accessible from the homeserver
-# Or use git to pull directly on the server
-```
-
-### 2. Transfer to homeserver
-
-```bash
-# Using SCP (from Windows PowerShell)
-scp -P 2222 -r "C:\Users\natch\PycharmProjects\Caisse noire" user@luzz.me:/data/kotiz
-
-# Or using rsync (recommended for updates)
-rsync -avz -e "ssh -p 2222" --exclude 'node_modules' --exclude '.git' \
-  "C:\Users\natch\PycharmProjects\Caisse noire/" user@luzz.me:/data/kotiz/
-```
-
-### 3. Configure environment on homeserver
+### 1. Clone the repository on the homeserver
 
 ```bash
 ssh -p 2222 user@luzz.me
 
-cd /data/kotiz
+cd /data
+git clone https://github.com/1Luzz/Kotiz.git kotiz
+cd kotiz
+```
 
-# Copy and edit environment variables
+### 2. Configure environment variables
+
+```bash
 cp .env.example .env
 nano .env
-
-# Generate secure secrets
-openssl rand -base64 32  # Use for JWT_ACCESS_SECRET
-openssl rand -base64 32  # Use for JWT_REFRESH_SECRET
-openssl rand -base64 32  # Use for DB_PASSWORD
 ```
 
-Example `.env`:
+Fill in the secrets:
 ```env
-DB_USER=kotiz
-DB_PASSWORD=<generated-password>
-DB_NAME=kotiz
-JWT_ACCESS_SECRET=<generated-secret>
-JWT_REFRESH_SECRET=<generated-secret>
-PUBLIC_URL=https://kotiz.luzz.me
+DB_PASSWORD=<openssl rand -base64 32>
+JWT_ACCESS_SECRET=<openssl rand -base64 32>
+JWT_REFRESH_SECRET=<openssl rand -base64 32>
 API_PORT=3001
+PWA_PORT=3002
 ```
 
-### 4. Update Caddy configuration
-
-Add the contents of `deploy/Caddyfile` to your main Caddyfile:
+### 3. Update Caddy configuration
 
 ```bash
-# Edit your Caddyfile
-nano /data/Caddyfile
+# Add the Kotiz config to your Caddyfile
+cat deploy/Caddyfile >> /data/Caddyfile
 
-# Add the kotiz.luzz.me block from deploy/Caddyfile
+# Reload Caddy
+docker exec caddy caddy reload --config /etc/caddy/Caddyfile
 ```
 
-Reload Caddy:
-```bash
-docker exec -it caddy caddy reload --config /etc/caddy/Caddyfile
-```
+### 4. Configure DNS on Namecheap
 
-### 5. Update DNS
-
-Add DNS records for `kotiz.luzz.me`:
+Add these DNS records:
 
 | Type | Host | Value |
 |------|------|-------|
 | A | kotiz | 78.121.58.117 |
+| A | kotiz-api | 78.121.58.117 |
 | AAAA | kotiz | 2a02:8424:8e04:4801:9fff:665d:b8a4:abcd |
+| AAAA | kotiz-api | 2a02:8424:8e04:4801:9fff:665d:b8a4:abcd |
 
-### 6. Build and start containers
+### 5. Build and start containers
 
 ```bash
 cd /data/kotiz
 
-# Build the Docker image
+# Build Docker images
 docker-compose build
 
-# Run migrations first
+# Run migrations (first time only)
 docker-compose --profile setup up -d
-
-# Wait for migrations to complete
-docker-compose logs -f migrate
+docker-compose logs -f migrate  # Wait for completion
 
 # Start the application
 docker-compose up -d
 
 # Check logs
-docker-compose logs -f api
+docker-compose logs -f
 ```
 
-### 7. Verify deployment
+### 6. Verify deployment
 
-- Open https://kotiz.luzz.me in your browser
-- Check the PWA is installable (look for install prompt)
-- Test API: `curl https://kotiz.luzz.me/auth/health`
+- PWA: https://kotiz.luzz.me
+- API Health: https://kotiz-api.luzz.me/auth/health
+- Check PWA is installable (browser should show install prompt)
 
 ## Maintenance
 
 ### View logs
 ```bash
 docker-compose logs -f api
+docker-compose logs -f pwa
 ```
 
-### Restart
+### Restart services
 ```bash
-docker-compose restart api
+docker-compose restart api pwa
 ```
 
-### Update
+### Update (after git pull)
 ```bash
-# Pull latest code
+cd /data/kotiz
 git pull
-
-# Rebuild and restart
 docker-compose build --no-cache
 docker-compose up -d
 ```
@@ -142,42 +141,20 @@ cat backup.sql | docker exec -i kotiz-db psql -U kotiz kotiz
 
 ### Container won't start
 ```bash
-# Check logs
 docker-compose logs api
-
-# Check container status
+docker-compose logs pwa
 docker ps -a
-
-# Rebuild from scratch
-docker-compose down
-docker-compose build --no-cache
-docker-compose up -d
 ```
 
-### Database connection issues
-```bash
-# Check database is healthy
-docker-compose ps db
-
-# Test connection
-docker exec -it kotiz-db psql -U kotiz -d kotiz -c "SELECT 1;"
-```
+### CORS errors
+Check that `CORS_ORIGINS` in docker-compose.yml includes `https://kotiz.luzz.me`
 
 ### PWA not installing
-- Ensure HTTPS is working
-- Check manifest.json is accessible: `curl https://kotiz.luzz.me/manifest.json`
-- Check service worker: Open DevTools > Application > Service Workers
+- Ensure HTTPS is working on both domains
+- Check manifest: `curl https://kotiz.luzz.me/manifest.json`
+- Check service worker in DevTools > Application > Service Workers
 
-## Network architecture
-
-```
-Internet
-    │
-    ▼
-[Caddy Reverse Proxy :443]
-    │
-    ▼
-[kotiz-api :3001]  ◄─── Docker network ───► [kotiz-db :5432]
-    │
-    └── Serves: API + Static PWA files
-```
+### API unreachable from PWA
+- Check DNS resolution: `nslookup kotiz-api.luzz.me`
+- Test API directly: `curl https://kotiz-api.luzz.me/auth/health`
+- Check CORS headers in browser DevTools Network tab

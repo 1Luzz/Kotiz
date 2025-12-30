@@ -1,41 +1,19 @@
 # =============================================================================
-# Kotiz - Multi-stage Dockerfile
-# Builds both frontend (PWA) and backend (Fastify API)
+# Kotiz - API Dockerfile (Backend only)
+# For combined build, see Dockerfile.combined
 # =============================================================================
 
-# -----------------------------------------------------------------------------
-# Stage 1: Build Frontend (Expo Web)
-# -----------------------------------------------------------------------------
-FROM node:20-alpine AS frontend-builder
+FROM node:20-alpine AS builder
 
-WORKDIR /app/frontend
+WORKDIR /app
 
-# Copy frontend package files
-COPY app/package*.json ./
-
-# Install dependencies
-RUN npm ci
-
-# Copy frontend source
-COPY app/ ./
-
-# Build the web app
-RUN npm run build:web
-
-# -----------------------------------------------------------------------------
-# Stage 2: Build Backend
-# -----------------------------------------------------------------------------
-FROM node:20-alpine AS backend-builder
-
-WORKDIR /app/backend
-
-# Copy backend package files
+# Copy package files
 COPY server/package*.json ./
 
 # Install dependencies
 RUN npm ci
 
-# Copy backend source
+# Copy source
 COPY server/ ./
 
 # Generate Prisma client
@@ -45,9 +23,9 @@ RUN npx prisma generate
 RUN npm run build
 
 # -----------------------------------------------------------------------------
-# Stage 3: Production Image
+# Production Image
 # -----------------------------------------------------------------------------
-FROM node:20-alpine AS production
+FROM node:20-alpine
 
 WORKDIR /app
 
@@ -60,10 +38,7 @@ COPY server/prisma ./prisma
 RUN npx prisma generate
 
 # Copy built backend
-COPY --from=backend-builder /app/backend/dist ./dist
-
-# Copy built frontend to public folder
-COPY --from=frontend-builder /app/frontend/dist ./public
+COPY --from=builder /app/dist ./dist
 
 # Create uploads directory
 RUN mkdir -p uploads
@@ -71,8 +46,6 @@ RUN mkdir -p uploads
 # Set environment variables
 ENV NODE_ENV=production
 ENV PORT=3000
-ENV SERVE_FRONTEND=true
-ENV FRONTEND_PATH=./public
 
 # Expose port
 EXPOSE 3000

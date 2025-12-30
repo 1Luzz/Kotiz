@@ -4,8 +4,48 @@
 # Add this configuration to your existing Caddyfile on the homeserver
 # =============================================================================
 
+# -----------------------------------------------------------------------------
+# PWA Frontend - kotiz.luzz.me
+# -----------------------------------------------------------------------------
 kotiz.luzz.me {
-    # Reverse proxy to Kotiz container
+    # Reverse proxy to PWA container (nginx)
+    reverse_proxy localhost:3002
+
+    # Enable compression
+    encode gzip zstd
+
+    # Security headers
+    header {
+        # HSTS
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        # Prevent clickjacking
+        X-Frame-Options "SAMEORIGIN"
+        # Prevent MIME sniffing
+        X-Content-Type-Options "nosniff"
+        # XSS Protection
+        X-XSS-Protection "1; mode=block"
+        # Referrer Policy
+        Referrer-Policy "strict-origin-when-cross-origin"
+        # CSP for PWA - allow API calls to kotiz-api.luzz.me
+        Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://kotiz-api.luzz.me; font-src 'self' data:; connect-src 'self' https://kotiz-api.luzz.me; manifest-src 'self'; worker-src 'self';"
+        # Remove server header
+        -Server
+    }
+
+    # Logging
+    log {
+        output file /var/log/caddy/kotiz.log {
+            roll_size 10mb
+            roll_keep 5
+        }
+    }
+}
+
+# -----------------------------------------------------------------------------
+# API Backend - kotiz-api.luzz.me
+# -----------------------------------------------------------------------------
+kotiz-api.luzz.me {
+    # Reverse proxy to API container (fastify)
     reverse_proxy localhost:3001
 
     # Enable compression
@@ -23,32 +63,19 @@ kotiz.luzz.me {
         X-XSS-Protection "1; mode=block"
         # Referrer Policy
         Referrer-Policy "strict-origin-when-cross-origin"
-        # CSP for PWA
-        Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://kotiz.luzz.me wss://kotiz.luzz.me; manifest-src 'self'; worker-src 'self';"
         # Remove server header
         -Server
     }
 
-    # Cache static assets
-    @static {
-        path *.js *.css *.png *.jpg *.jpeg *.gif *.ico *.svg *.woff *.woff2
+    # Cache uploaded files
+    @uploads {
+        path /uploads/*
     }
-    header @static Cache-Control "public, max-age=31536000, immutable"
-
-    # Don't cache HTML and API responses
-    @dynamic {
-        path /
-        path /auth/*
-        path /users/*
-        path /teams/*
-        path /disputes/*
-        path /notifications/*
-    }
-    header @dynamic Cache-Control "no-cache, no-store, must-revalidate"
+    header @uploads Cache-Control "public, max-age=604800"
 
     # Logging
     log {
-        output file /var/log/caddy/kotiz.log {
+        output file /var/log/caddy/kotiz-api.log {
             roll_size 10mb
             roll_keep 5
         }

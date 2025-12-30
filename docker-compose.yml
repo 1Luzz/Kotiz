@@ -2,6 +2,10 @@
 # Kotiz (Caisse Noire) - Docker Compose
 # =============================================================================
 #
+# Architecture:
+#   - kotiz.luzz.me     -> PWA frontend (nginx)
+#   - kotiz-api.luzz.me -> API backend (fastify)
+#
 # Deployment commands:
 #   docker-compose up -d                    # Start all services
 #   docker-compose --profile setup up -d    # Run migrations first
@@ -34,12 +38,12 @@ services:
       - kotiz-network
 
   # ---------------------------------------------------------------------------
-  # Kotiz API + PWA (Fastify serving both API and static frontend)
+  # Kotiz API (Fastify) - kotiz-api.luzz.me
   # ---------------------------------------------------------------------------
   api:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.api
     container_name: kotiz-api
     restart: unless-stopped
     depends_on:
@@ -52,10 +56,9 @@ services:
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT access secret required}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT refresh secret required}
       UPLOADS_DIR: /app/uploads
-      UPLOADS_BASE_URL: ${PUBLIC_URL:-https://kotiz.luzz.me}/uploads
-      CORS_ORIGINS: ${PUBLIC_URL:-https://kotiz.luzz.me},http://localhost:3000
-      SERVE_FRONTEND: "true"
-      FRONTEND_PATH: ./public
+      UPLOADS_BASE_URL: https://kotiz-api.luzz.me/uploads
+      CORS_ORIGINS: https://kotiz.luzz.me,http://localhost:8081,http://localhost:3000
+      SERVE_FRONTEND: "false"
     volumes:
       - uploads:/app/uploads
     ports:
@@ -70,12 +73,31 @@ services:
       start_period: 10s
 
   # ---------------------------------------------------------------------------
+  # Kotiz PWA (Nginx) - kotiz.luzz.me
+  # ---------------------------------------------------------------------------
+  pwa:
+    build:
+      context: .
+      dockerfile: Dockerfile.pwa
+    container_name: kotiz-pwa
+    restart: unless-stopped
+    ports:
+      - "${PWA_PORT:-3002}:80"
+    networks:
+      - kotiz-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ---------------------------------------------------------------------------
   # Database Migrations (one-time job)
   # ---------------------------------------------------------------------------
   migrate:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.api
     container_name: kotiz-migrate
     depends_on:
       db:
