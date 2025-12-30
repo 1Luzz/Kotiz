@@ -10,6 +10,10 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Build argument for API URL (passed at build time)
+ARG EXPO_PUBLIC_API_URL=https://kotiz-api.luzz.me
+ENV EXPO_PUBLIC_API_URL=$EXPO_PUBLIC_API_URL
+
 # Copy package files
 COPY app/package*.json ./
 
@@ -19,7 +23,7 @@ RUN npm ci
 # Copy source
 COPY app/ ./
 
-# Build the web app
+# Build the web app with the API URL baked in
 RUN npm run build:web
 
 # -----------------------------------------------------------------------------
