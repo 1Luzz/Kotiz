@@ -18,6 +18,7 @@ export const Colors = {
   error: '#EF4444',
   errorLight: '#F87171',
   warning: '#F59E0B',
+  expense: '#EAB308', // Jaune moutarde pour les dépenses
 
   // Couleurs de fond
   background: '#0F172A', // Bleu très sombre

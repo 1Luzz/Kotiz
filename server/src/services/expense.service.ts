@@ -24,6 +24,12 @@ export class ExpenseService {
       receiptUrl?: string;
     }
   ) {
+    // Check if team is closed
+    const team = await prisma.team.findUnique({ where: { id: teamId }, select: { isClosed: true } });
+    if (team?.isClosed) {
+      throw new ExpenseError('FORBIDDEN', 'Cette cagnotte est fermée, impossible d\'ajouter des dépenses');
+    }
+
     const expense = await prisma.$transaction(async (tx) => {
       const newExpense = await tx.expense.create({
         data: {

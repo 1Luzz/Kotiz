@@ -2,7 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { ExpenseCategory } from '@prisma/client';
 import { authenticate } from '../../middleware/authenticate.js';
-import { requireTeamMember, requireTeamAdmin } from '../../middleware/authorize.js';
+import { requireTeamMember, requireTeamAdmin, requireTeamAdminOrTreasurer } from '../../middleware/authorize.js';
 import { expenseService, ExpenseError } from '../../services/expense.service.js';
 import { serializeDecimal } from '../../utils/serializer.js';
 
@@ -32,7 +32,7 @@ export async function expenseRoutes(fastify: FastifyInstance) {
   // POST /teams/:teamId/expenses - Create expense
   fastify.post(
     '/teams/:teamId/expenses',
-    { preHandler: [requireTeamAdmin()] },
+    { preHandler: [requireTeamAdminOrTreasurer()] },
     async (request, reply) => {
       try {
         const { teamId } = request.params as { teamId: string };
@@ -50,6 +50,13 @@ export async function expenseRoutes(fastify: FastifyInstance) {
           return reply.status(400).send({
             error: 'VALIDATION_ERROR',
             message: error.errors[0].message,
+          });
+        }
+        if (error instanceof ExpenseError) {
+          const status = error.code === 'FORBIDDEN' ? 403 : 400;
+          return reply.status(status).send({
+            error: error.code,
+            message: error.message,
           });
         }
         throw error;

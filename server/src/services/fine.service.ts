@@ -1,6 +1,7 @@
-import { FineStatus, ActivityType } from '@prisma/client';
+import { FineStatus, ActivityType, NotificationType } from '@prisma/client';
 import { prisma } from '../config/database.js';
 import { teamService } from './team.service.js';
+import { notificationService } from './notification.service.js';
 
 export interface CreateFineInput {
   teamId: string;
@@ -131,6 +132,12 @@ export class FineService {
   async createFine(issuedById: string, input: CreateFineInput) {
     const { teamId, offenderId, ruleId, customLabel, amount, note } = input;
 
+    // Check if team is closed
+    const team = await prisma.team.findUnique({ where: { id: teamId }, select: { isClosed: true } });
+    if (team?.isClosed) {
+      throw new FineError('FORBIDDEN', 'Cette cagnotte est fermée, impossible d\'ajouter des amendes');
+    }
+
     // Check permission
     const canCreate = await teamService.canCreateFine(teamId, issuedById);
     if (!canCreate) {
@@ -205,6 +212,19 @@ export class FineService {
 
       return newFine;
     });
+
+    // Send notification to the offender (outside transaction, non-blocking)
+    if (fine.offenderId !== issuedById) {
+      const teamName = await prisma.team.findUnique({ where: { id: teamId }, select: { name: true } });
+      notificationService.createNotification({
+        userId: fine.offenderId,
+        teamId,
+        type: NotificationType.fine_received,
+        title: `Nouvelle amende - ${teamName?.name || 'Équipe'}`,
+        body: `${fine.issuedBy.displayName} vous a mis une amende : ${fineLabel} (${fineAmount}€)`,
+        metadata: { fineId: fine.id, amount: fineAmount, label: fineLabel },
+      }).catch(() => {}); // Don't fail if notification fails
+    }
 
     return fine;
   }
@@ -321,6 +341,19 @@ export class FineService {
 
       return newPayment;
     });
+
+    // Notify the offender that their fine was paid (non-blocking)
+    if (fine.offenderId !== recordedById) {
+      const team = await prisma.team.findUnique({ where: { id: fine.teamId }, select: { name: true } });
+      notificationService.createNotification({
+        userId: fine.offenderId,
+        teamId: fine.teamId,
+        type: NotificationType.payment_recorded,
+        title: `Paiement enregistré - ${team?.name || 'Équipe'}`,
+        body: `Un paiement de ${actualPayment}€ a été enregistré sur votre amende`,
+        metadata: { paymentId: payment.id, amount: actualPayment, fineId },
+      }).catch(() => {});
+    }
 
     return payment;
   }
