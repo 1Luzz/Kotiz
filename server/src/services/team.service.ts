@@ -285,20 +285,27 @@ export class TeamService {
     const leaderboard = await prisma.fine.groupBy({
       by: ['offenderId'],
       where: { teamId },
-      _sum: { amount: true },
+      _sum: { amount: true, amountPaid: true },
       _count: { _all: true },
       orderBy: { _sum: { amount: 'desc' } },
       take: limit,
     });
 
-    // Get user details
+    // Get user details and credit
     const userIds = leaderboard.map((l) => l.offenderId);
-    const users = await prisma.user.findMany({
-      where: { id: { in: userIds } },
-      select: { id: true, displayName: true, avatarUrl: true },
-    });
+    const [users, memberships] = await Promise.all([
+      prisma.user.findMany({
+        where: { id: { in: userIds } },
+        select: { id: true, displayName: true, avatarUrl: true },
+      }),
+      prisma.teamMember.findMany({
+        where: { teamId, userId: { in: userIds } },
+        select: { userId: true, credit: true },
+      }),
+    ]);
 
     const usersMap = new Map(users.map((u) => [u.id, u]));
+    const creditsMap = new Map(memberships.map((m) => [m.userId, Number(m.credit)]));
 
     return leaderboard.map((l) => {
       const user = usersMap.get(l.offenderId);
@@ -307,6 +314,8 @@ export class TeamService {
         displayName: user?.displayName ?? 'Inconnu',
         avatarUrl: user?.avatarUrl ?? null,
         totalFines: Number(l._sum?.amount ?? 0),
+        amountPaid: Number(l._sum?.amountPaid ?? 0),
+        credit: creditsMap.get(l.offenderId) ?? 0,
         finesCount: l._count?._all ?? 0,
       };
     });

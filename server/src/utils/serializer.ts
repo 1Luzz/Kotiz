@@ -31,6 +31,10 @@ export function serializeDecimal<T>(obj: T): T {
     return obj.map(serializeDecimal) as unknown as T;
   }
 
+  if (obj instanceof Date) {
+    return obj as unknown as T;
+  }
+
   if (typeof obj === 'object' && obj !== null) {
     const result: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(obj)) {

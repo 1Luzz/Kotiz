@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
+  Image,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
@@ -89,7 +90,11 @@ export default function LoginScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
-          <Text style={styles.logo}>Kotiz</Text>
+          <Image
+            source={require('../../assets/icon.png')}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
           <Text style={styles.subtitle}>
             Gérez les amendes de votre équipe
           </Text>
@@ -160,10 +165,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Spacing.xxl,
   },
-  logo: {
-    fontSize: FontSizes.xxxl,
-    fontWeight: '700',
-    color: Colors.primary,
+  logoImage: {
+    width: 120,
+    height: 120,
     marginBottom: Spacing.sm,
   },
   subtitle: {

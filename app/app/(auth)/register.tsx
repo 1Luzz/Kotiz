@@ -93,9 +93,7 @@ export default function RegisterScreen() {
         displayName: displayName.trim(),
       });
 
-      setSuccessMessage(
-        `Compte créé avec succès ! Un email de confirmation a été envoyé à ${email}. Cliquez sur le lien dans l'email pour activer votre compte.`
-      );
+      setSuccessMessage('Compte créé avec succès !');
     } catch (error: unknown) {
       const message = error instanceof Error ? getErrorMessage(error) : 'Erreur lors de l\'inscription';
       setGlobalError(message);

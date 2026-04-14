@@ -186,18 +186,18 @@ export default function TeamDetailScreen() {
               <Text style={styles.potStatValue}>{totalCollected.toFixed(0)}€</Text>
               <Text style={styles.potStatLabel}>collecte</Text>
             </View>
-            {totalExpenses > 0 && (
-              <View style={styles.potStatItem}>
-                <View style={[styles.potStatDot, { backgroundColor: Colors.secondary }]} />
-                <Text style={styles.potStatValue}>-{totalExpenses.toFixed(0)}€</Text>
-                <Text style={styles.potStatLabel}>depenses</Text>
-              </View>
-            )}
             <View style={styles.potStatItem}>
               <View style={[styles.potStatDot, { backgroundColor: Colors.warning }]} />
               <Text style={styles.potStatValue}>{finesRemaining.toFixed(0)}€</Text>
               <Text style={styles.potStatLabel}>impaye</Text>
             </View>
+            {totalExpenses > 0 && (
+              <View style={styles.potStatItem}>
+                <View style={[styles.potStatDot, { backgroundColor: Colors.expense }]} />
+                <Text style={styles.potStatValue}>-{totalExpenses.toFixed(0)}€</Text>
+                <Text style={styles.potStatLabel}>depenses</Text>
+              </View>
+            )}
           </View>
           {/* Solde reel si des depenses ont ete faites */}
           {totalExpenses > 0 && (
@@ -254,8 +254,8 @@ export default function TeamDetailScreen() {
               onPress={() => !team.is_closed && router.push({ pathname: '/add-expense', params: { teamId: id } })}
               disabled={team.is_closed}
             >
-              <View style={[styles.actionIcon, { backgroundColor: team.is_closed ? Colors.textMuted + '20' : Colors.secondary + '20' }]}>
-                <Ionicons name={team.is_closed ? 'lock-closed' : 'remove'} size={24} color={team.is_closed ? Colors.textMuted : Colors.secondary} />
+              <View style={[styles.actionIcon, { backgroundColor: team.is_closed ? Colors.textMuted + '20' : Colors.expense + '20' }]}>
+                <Ionicons name={team.is_closed ? 'lock-closed' : 'remove'} size={24} color={team.is_closed ? Colors.textMuted : Colors.expense} />
               </View>
               <Text style={[styles.actionLabel, team.is_closed && styles.actionLabelDisabled]}>Depense</Text>
             </TouchableOpacity>
@@ -430,8 +430,8 @@ export default function TeamDetailScreen() {
           onPress={() => router.push({ pathname: '/expenses', params: { teamId: id } })}
         >
           <View style={styles.sectionLinkLeft}>
-            <View style={[styles.sectionLinkIcon, { backgroundColor: Colors.secondary + '20' }]}>
-              <Ionicons name="trending-down" size={20} color={Colors.secondary} />
+            <View style={[styles.sectionLinkIcon, { backgroundColor: Colors.expense + '20' }]}>
+              <Ionicons name="trending-down" size={20} color={Colors.expense} />
             </View>
             <View>
               <Text style={styles.sectionLinkTitle}>Depenses</Text>

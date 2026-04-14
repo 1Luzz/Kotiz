@@ -165,6 +165,8 @@ export const useTeamLeaderboard = (teamId: string, limit = 10) => {
         displayName: string;
         avatarUrl: string | null;
         totalFines: number;
+        amountPaid: number;
+        credit: number;
         finesCount: number;
       }>>(`/teams/${teamId}/leaderboard?limit=${limit}`);
 
@@ -174,6 +176,8 @@ export const useTeamLeaderboard = (teamId: string, limit = 10) => {
         display_name: entry.displayName,
         avatar_url: entry.avatarUrl,
         total_fines: entry.totalFines,
+        amount_paid: entry.amountPaid ?? 0,
+        credit: entry.credit ?? 0,
         fines_count: entry.finesCount,
       })) as LeaderboardEntry[];
     },
