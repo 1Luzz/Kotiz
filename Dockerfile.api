@@ -40,9 +40,6 @@ RUN npx prisma generate
 # Copy built backend
 COPY --from=builder /app/dist ./dist
 
-# Create uploads directory
-RUN mkdir -p uploads
-
 # Set environment variables
 ENV NODE_ENV=production
 ENV PORT=3000

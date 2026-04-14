@@ -55,12 +55,8 @@ services:
       DATABASE_URL: postgresql://${DB_USER:-kotiz}:${DB_PASSWORD}@db:5432/${DB_NAME:-kotiz}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT access secret required}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT refresh secret required}
-      UPLOADS_DIR: /app/uploads
-      UPLOADS_BASE_URL: https://kotiz-api.luzz.me/uploads
       CORS_ORIGINS: https://kotiz.luzz.me,http://localhost:8081,http://localhost:3000
       SERVE_FRONTEND: "false"
-    volumes:
-      - uploads:/app/uploads
     ports:
       - "${API_PORT:-3001}:3000"
     networks:
@@ -115,8 +111,6 @@ services:
 # =============================================================================
 volumes:
   postgres_data:
-    driver: local
-  uploads:
     driver: local
 
 # =============================================================================

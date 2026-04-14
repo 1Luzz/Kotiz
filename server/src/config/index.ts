@@ -9,8 +9,6 @@ const envSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(32),
   PORT: z.string().default('3000'),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-  UPLOADS_DIR: z.string().default('./uploads'),
-  UPLOADS_BASE_URL: z.string().default('http://localhost:3000/uploads'),
   CORS_ORIGINS: z.string().default('http://localhost:8081'),
   SERVE_FRONTEND: z.string().default('false'),
   FRONTEND_PATH: z.string().default('./public'),
@@ -33,8 +31,6 @@ export const config = {
   },
 
   uploads: {
-    directory: env.UPLOADS_DIR,
-    baseUrl: env.UPLOADS_BASE_URL,
     maxFileSize: 5 * 1024 * 1024, // 5MB
     allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'] as string[],
   },

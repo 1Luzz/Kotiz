@@ -7,6 +7,7 @@ import { registerRoutes } from './routes/index.js';
 import path from 'path';
 import fs from 'fs';
 
+
 async function buildServer() {
   const fastify = Fastify({
     logger: {
@@ -34,14 +35,6 @@ async function buildServer() {
     limits: {
       fileSize: config.uploads.maxFileSize,
     },
-  });
-
-  // Serve static files (uploads)
-  const uploadsPath = path.resolve(config.uploads.directory);
-  await fastify.register(fastifyStatic, {
-    root: uploadsPath,
-    prefix: '/uploads/',
-    decorateReply: false,
   });
 
   // Global error handler

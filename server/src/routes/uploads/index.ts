@@ -5,11 +5,27 @@ import { uploadService } from '../../services/upload.service.js';
 import { config } from '../../config/index.js';
 
 export async function uploadRoutes(fastify: FastifyInstance) {
-  // All routes require authentication
-  fastify.addHook('preHandler', authenticate);
+  // GET /uploads/:id - Serve uploaded file from database (public, no auth)
+  fastify.get('/uploads/:id', async (request, reply) => {
+    const { id } = request.params as { id: string };
 
-  // POST /users/me/avatar - Upload user avatar
-  fastify.post('/users/me/avatar', async (request, reply) => {
+    const upload = await uploadService.getUpload(id);
+
+    if (!upload) {
+      return reply.status(404).send({
+        error: 'NOT_FOUND',
+        message: 'Fichier non trouvé',
+      });
+    }
+
+    return reply
+      .header('Content-Type', upload.mimeType)
+      .header('Cache-Control', 'public, max-age=31536000, immutable')
+      .send(upload.data);
+  });
+
+  // POST /users/me/avatar - Upload user avatar (authenticated)
+  fastify.post('/users/me/avatar', { preHandler: [authenticate] }, async (request, reply) => {
     const data = await request.file();
 
     if (!data) {
@@ -19,7 +35,6 @@ export async function uploadRoutes(fastify: FastifyInstance) {
       });
     }
 
-    // Validate mime type
     if (!config.uploads.allowedMimeTypes.includes(data.mimetype)) {
       return reply.status(400).send({
         error: 'INVALID_FILE_TYPE',
@@ -27,10 +42,8 @@ export async function uploadRoutes(fastify: FastifyInstance) {
       });
     }
 
-    // Read file buffer
     const buffer = await data.toBuffer();
 
-    // Validate file size
     if (buffer.length > config.uploads.maxFileSize) {
       return reply.status(400).send({
         error: 'FILE_TOO_LARGE',
@@ -47,10 +60,10 @@ export async function uploadRoutes(fastify: FastifyInstance) {
     return reply.send({ url });
   });
 
-  // POST /teams/:teamId/photo - Upload team photo
+  // POST /teams/:teamId/photo - Upload team photo (authenticated + admin)
   fastify.post(
     '/teams/:teamId/photo',
-    { preHandler: [requireTeamAdmin()] },
+    { preHandler: [authenticate, requireTeamAdmin()] },
     async (request, reply) => {
       const { teamId } = request.params as { teamId: string };
       const data = await request.file();
@@ -62,7 +75,6 @@ export async function uploadRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Validate mime type
       if (!config.uploads.allowedMimeTypes.includes(data.mimetype)) {
         return reply.status(400).send({
           error: 'INVALID_FILE_TYPE',
@@ -70,10 +82,8 @@ export async function uploadRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Read file buffer
       const buffer = await data.toBuffer();
 
-      // Validate file size
       if (buffer.length > config.uploads.maxFileSize) {
         return reply.status(400).send({
           error: 'FILE_TOO_LARGE',
@@ -87,8 +97,8 @@ export async function uploadRoutes(fastify: FastifyInstance) {
     }
   );
 
-  // POST /uploads/receipt - Upload receipt image
-  fastify.post('/uploads/receipt', async (request, reply) => {
+  // POST /uploads/receipt - Upload receipt image (authenticated)
+  fastify.post('/uploads/receipt', { preHandler: [authenticate] }, async (request, reply) => {
     const data = await request.file();
 
     if (!data) {
@@ -98,7 +108,6 @@ export async function uploadRoutes(fastify: FastifyInstance) {
       });
     }
 
-    // Validate mime type
     if (!config.uploads.allowedMimeTypes.includes(data.mimetype)) {
       return reply.status(400).send({
         error: 'INVALID_FILE_TYPE',
@@ -106,10 +115,8 @@ export async function uploadRoutes(fastify: FastifyInstance) {
       });
     }
 
-    // Read file buffer
     const buffer = await data.toBuffer();
 
-    // Validate file size
     if (buffer.length > config.uploads.maxFileSize) {
       return reply.status(400).send({
         error: 'FILE_TOO_LARGE',
